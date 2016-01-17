@@ -2,18 +2,63 @@ using System;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace ffmpegprogress
 {
 	static class MainClass
 	{
-		public static string ffmpeg_win="C:\\ffmpeg-win64\\bin\\ffmpeg";
-		public static string ffmpeg_unix="ffmpeg";
-		public static string CommandLine="-i test.mkv -f psp -r 29.97 -b 768k -ar 24000 -ab 64k -s 320x240 psp.mp4 -y";
-		public static string CommandLineV="-version";
 		public static void Main (string[] args)
 		{
-			Test ();
+			if (args.Length > 0)
+			{
+				string main_arg = args [0];
+				switch (main_arg) {
+				case "ffmpeg":
+					{
+						string ffmpeg_args = String.Join (" ", args.Skip (1));
+						FFMpegTask.RunProcessProgress (OSHelper.GetFFmpeg (), ffmpeg_args);
+						return;
+					}
+				case "--simple":
+					{
+						string ffmpeg_args = String.Join (" ", args.Skip (1));
+						FFMpegTask.RunProcessSimple (OSHelper.GetFFmpeg (), ffmpeg_args);
+						return;
+					}
+				case "--help":
+					{
+						Help ();
+						return;
+					}
+				case "--version":
+					{
+						FFMpegTask.RunProcessSimple (OSHelper.GetFFmpeg (), "-version");
+						return;
+					}
+				case "--test":
+					{
+						Test ();
+						return;
+					}
+				default:
+					{
+						Help ();
+						return;
+					}
+				}
+			}
+			else
+			{
+				Console.Error.WriteLine ("No arguments!");
+				Help ();
+				return;
+			}
+		}
+		public static void Help()
+		{
+			//TODO: usage help
+			Console.WriteLine (@"//TODO: usage help");
 		}
 		public static void Test()
 		{
@@ -22,24 +67,21 @@ namespace ffmpegprogress
 			Console.WriteLine ("Windows: {0}", OSHelper.IsWin ());
 			Console.WriteLine ("*nix: {0}", OSHelper.IsUnix ());
 			if (OSHelper.IsUnix ())
-				Test_Unix ();
-			if (OSHelper.IsWin ())
-				Test_Win();
+				Console.Error.WriteLine("Warning: Unix is not supported!");
+			Test0();
+			Test1();
 		}
-		public static void Test_Unix()
+		public static void Test0()
 		{
+			string CommandLineV="-version";
 			FFMpegTask.DebugOn ();
-			Console.Write ("Unix test");
-			Console.Write ("Warning: Unix is not supported!");
-			FFMpegTask.RunProcessSimple (ffmpeg_unix, CommandLineV);
-			FFMpegTask.RunProcessProgress (ffmpeg_unix,CommandLine);
+			FFMpegTask.RunProcessSimple (OSHelper.GetFFmpeg (), CommandLineV);
 		}
-		public static void Test_Win()
+		public static void Test1()
 		{
-			FFMpegTask.DebugOff ();
-			Console.Write ("Windows test");
-			FFMpegTask.RunProcessSimple (ffmpeg_win, CommandLineV);
-			FFMpegTask.RunProcessProgress (ffmpeg_win,CommandLine);
+			string CommandLineConvert="-i test.mkv -f psp -r 29.97 -b 768k -ar 24000 -ab 64k -s 320x240 psp.mp4 -y";
+			FFMpegTask.DebugOn ();
+			FFMpegTask.RunProcessProgress (OSHelper.GetFFmpeg (),CommandLineConvert);
 		}
 	}
 	#region OSHelper
@@ -64,6 +106,15 @@ namespace ffmpegprogress
 				return true;
 			else
 				return false;
+		}
+		public static string GetFFmpeg()
+		{
+			//TODO: improve
+			if (IsWin ())
+				return "C:\\ffmpeg-win64\\bin\\ffmpeg";
+			if (IsUnix ())
+				return "ffmpeg";
+			return null;
 		}
 	}
 	#endregion
@@ -111,21 +162,6 @@ namespace ffmpegprogress
 				els [i] = els [i].TrimStart ().TrimEnd ();
 			}
 			return els;
-		}
-		public static void TimeToLong_Test()
-		{
-			string s1 = "00:03:11.99";
-			string s2 = "00:07:50.04";
-			Console.WriteLine ("{0}/{1}", s1, s2);
-			long i1 = TimeToLong (s1);
-			long i2 = TimeToLong (s2);
-			Console.WriteLine ("{0}/{1}", i1, i2);
-			double d = (double)i1 / (double)i2;
-			double p = d * 100;
-			double r = Math.Round (p, 2);
-			Console.WriteLine (d);
-			Console.WriteLine (p);
-			Console.WriteLine (r);
 		}
 		public static double GetProgress(string Time,string Duration)
 		{
@@ -213,8 +249,8 @@ namespace ffmpegprogress
 		{
 			try
 			{
-				Console.WriteLine ("ffmpeg: {0}", ffmpeg);
-				Console.WriteLine ("ffmpeg args: {0}", ffmpeg_args);
+				if(IsDebug()) Console.WriteLine ("ffmpeg: {0}", ffmpeg);
+				if(IsDebug()) Console.WriteLine ("ffmpeg args: {0}", ffmpeg_args);
 				Process process = new Process();
 				process.StartInfo = new ProcessStartInfo (ffmpeg, ffmpeg_args);
 				process.StartInfo.UseShellExecute = false;
